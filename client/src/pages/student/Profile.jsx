@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,11 +16,54 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import Course from "./Course";
+import {
+  useLoadUserQuery,
+  useUpdateUserMutation,
+} from "@/features/api/authApi";
+import { toast } from "sonner";
 
 const Profile = () => {
-  const isLoading = false;
+  const [name, setName] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState("");
+  const { data, isLoading, refetch } = useLoadUserQuery();
+  const [
+    updateUser,
+    {
+      data: updateUserData,
+      isLoading: updateUserIsLoading,
+      isError,
+      error,
+      isSuccess,
+    },
+  ] = useUpdateUserMutation();
 
   const enrolledCourses = [1];
+
+  const onChangeHandler = (e) => {
+    const file = e.target.files?.[0];
+    if (file) setProfilePhoto(file);
+  };
+
+  const updateUserHandler = async () => {
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("profilePhoto", profilePhoto);
+    await updateUser(formData);
+  };
+
+  useEffect(() => {
+    if (isSuccess) {
+      refetch();
+      toast.success(data.message || "Profile updated.");
+    }
+    if (isError) {
+      toast.error(error.message || "Failed to update.");
+    }
+  }, [error, updateUserData, isSuccess, isError]);
+
+  if (isLoading) return <h1>Profile Loading...</h1>;
+
+  const { user } = data;
 
   return (
     <div className="max-w-4xl mx-auto px-4 my-24">
@@ -31,7 +74,7 @@ const Profile = () => {
         <div className="flex flex-col items-center">
           <Avatar className="h-28 w-28 md:h-32 md:w-32">
             <AvatarImage
-              src="https://github.com/shadcn.png"
+              src={user.photoUrl || "https://github.com/shadcn.png"}
               alt="Profile"
               className="grayscale"
             />
@@ -44,24 +87,21 @@ const Profile = () => {
           <p className="font-semibold text-gray-900 dark:text-gray-100">
             Name:
             <span className="ml-2 font-normal text-gray-700 dark:text-gray-300">
-              Sarthak Jadhav
+              {user.name}
             </span>
           </p>
-
           <p className="font-semibold text-gray-900 dark:text-gray-100">
             Email:
             <span className="ml-2 font-normal text-gray-700 dark:text-gray-300">
-              sarthak@gmail.com
+              {user.email}
             </span>
           </p>
-
           <p className="font-semibold text-gray-900 dark:text-gray-100">
             Role:
             <span className="ml-2 font-normal text-gray-700 dark:text-gray-300">
-              Instructor
+              {user.role.toUpperCase()}
             </span>
           </p>
-
           {/* Edit Profile */}
           <Dialog>
             <DialogTrigger asChild>
@@ -82,7 +122,8 @@ const Profile = () => {
                   <Input
                     id="name"
                     type="text"
-                    defaultValue="Sarthak Jadhav"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className="col-span-3"
                   />
                 </div>
@@ -91,6 +132,7 @@ const Profile = () => {
                   <Label htmlFor="profilePhoto">Photo</Label>
                   <Input
                     id="profilePhoto"
+                    onChange={onChangeHandler}
                     type="file"
                     accept="image/*"
                     className="col-span-3"
@@ -99,8 +141,11 @@ const Profile = () => {
               </div>
 
               <DialogFooter>
-                <Button disabled={isLoading}>
-                  {isLoading ? (
+                <Button
+                  disabled={updateUserIsLoading}
+                  onClick={updateUserHandler}
+                >
+                  {updateUserIsLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Please wait...
@@ -119,13 +164,13 @@ const Profile = () => {
       <div className="mt-12">
         <h2 className="text-xl font-semibold">Courses You're Enrolled In</h2>
 
-        {enrolledCourses.length === 0 ? (
+        {user.enrolledCourses.length === 0 ? (
           <p className="mt-4 text-gray-500 dark:text-gray-400">
             You haven't enrolled in any courses yet.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-6">
-            {enrolledCourses.map((course) => (
+            {user.enrolledCourses.map((course) => (
               <Course key={course._id} course={course} />
             ))}
           </div>
